@@ -15,7 +15,6 @@ _book
 .DS_STORE
 .serverless/
 .serverless-offline
-serverless*.yml
 !serverless.example.yml
 tsconfig.tsbuildinfo
 docs/

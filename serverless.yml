@@ -1,0 +1,235 @@
+service: data-platform-stac
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, 'stg'}
+  region: ${opt:region, 'us-east-1'}
+  profile: ${self:custom.stages.${sls:stage}.profile}
+  # uncomment this if using a bucket that already exists for deployment files
+  # deploymentBucket:
+  #   name: my-deployment-bucket
+  logs:
+    restApi:
+      executionLogging: false
+      fullExecutionData: false
+      accessLogging: false
+      format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","useragent" : "$context.identity.userAgent","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
+  environment:
+    STAC_ID: "data-platform-stac-server"
+    STAC_TITLE: "Data Platform STAC API"
+    STAC_DESCRIPTION: "A STAC API using stac-server"
+    LOG_LEVEL: debug
+    STAC_DOCS_URL: https://stac-utils.github.io/stac-server/
+    OPENSEARCH_HOST:
+      Fn::GetAtt: [OpenSearchInstance, DomainEndpoint]
+    ENABLE_TRANSACTIONS_EXTENSION: false
+    OPENSEARCH_CREDENTIALS_SECRET_ID: ${self:service}-${sls:stage}-opensearch-user-creds
+    # comment STAC_API_ROOTPATH if deployed with a custom domain
+    STAC_API_ROOTPATH: "/${sls:stage}"
+    # PRE_HOOK: ${self:service}-${sls:stage}-preHook
+    # API_KEYS_SECRET_ID: ${self:service}-${sls:stage}-api-keys
+    # POST_HOOK: ${self:service}-${sls:stage}-postHook
+    # If you will be subscribing to post-ingest SNS notifications make
+    # sure that STAC_API_URL is set so that links are updated correctly
+    STAC_API_URL: "https://some-stac-server.example.com"
+    CORS_ORIGIN: "https://ui.example.com"
+    CORS_CREDENTIALS: false
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Resource: "arn:aws:es:${aws:region}:${aws:accountId}:domain/*"
+          Action: "es:*"
+        - Effect: Allow
+          Action:
+            - sqs:GetQueueUrl
+            - sqs:SendMessage
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+          Resource:
+            Fn::GetAtt: [ingestQueue, Arn]
+        - Effect: Allow
+          Action:
+            - sns:Publish
+          Resource:
+            Fn::GetAtt: [postIngestTopic, TopicArn]
+        - Effect: Allow
+          Action: s3:GetObject
+          Resource: "arn:aws:s3:::usgs-landsat/*"
+        - Effect: Allow
+          Resource: arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:${self:provider.environment.OPENSEARCH_CREDENTIALS_SECRET_ID}-*
+          Action: secretsmanager:GetSecretValue
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:ListBucket
+          Resource: "arn:aws:s3:::data-platform-stg-stac-repository/*"
+        # - Effect: Allow
+        #   Action: lambda:InvokeFunction
+        #   Resource: arn:aws:lambda:${aws:region}:${aws:accountId}:function:${self:service}-${sls:stage}-preHook
+        # - Effect: Allow
+        #   Action: secretsmanager:GetSecretValue
+        #   Resource: arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:${self:service}-${sls:stage}-api-keys-*
+        # - Effect: Allow
+        #   Action: lambda:InvokeFunction
+        #   Resource: arn:aws:lambda:${aws:region}:${aws:accountId}:function:${self:service}-${sls:stage}-postHook
+
+custom:
+  stages:
+    dev:
+      profile: Data-Platform-Staging
+    stg:
+      profile: Data-Platform-Staging
+    prd:
+      profile: Data-Platform-Production
+
+package:
+  individually: true
+
+functions:
+  api:
+    description: stac-server API Lambda
+    handler: index.handler
+    package:
+      artifact: dist/api/api.zip
+    events:
+      - http:
+          method: ANY
+          path: "/"
+          cors: true
+      - http:
+          method: ANY
+          path: "{proxy+}"
+          cors: true
+  ingest:
+    description: stac-server Ingest Lambda
+    handler: index.handler
+    memorySize: 512
+    timeout: 60
+    environment:
+      POST_INGEST_TOPIC_ARN: !Ref postIngestTopic
+    package:
+      artifact: dist/ingest/ingest.zip
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [ingestQueue, Arn]
+  # preHook:
+  #   description: stac-server pre-hook Lambda
+  #   handler: index.handler
+  #   memorySize: 512
+  #   timeout: 25
+  #   package:
+  #     artifact: dist/pre-hook/pre-hook.zip
+
+  # postHook:
+  #   description: stac-server post-hook Lambda
+  #   handler: index.handler
+  #   memorySize: 512
+  #   timeout: 25
+  #   package:
+  #     artifact: dist/post-hook/post-hook.zip
+
+resources:
+  Description: A STAC API running on stac-server
+  Resources:
+    ingestTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:service}-${sls:stage}-ingest
+    postIngestTopic:
+      # After a collection or item is ingested, the status of the ingest (success
+      # or failure) along with details of the collection or item are sent to this
+      # SNS topic. To take future action on items after they are ingested
+      # suscribe an endpoint to this topic
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:service}-${sls:stage}-post-ingest
+    deadLetterQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${sls:stage}-dead-letter-queue
+    ingestQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        VisibilityTimeout: 120
+        ReceiveMessageWaitTimeSeconds: 5
+        QueueName: ${self:service}-${sls:stage}-queue
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt deadLetterQueue.Arn
+          maxReceiveCount: 2
+    ingestQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref ingestQueue
+        PolicyDocument:
+          Statement:
+            - Sid: allow-sqs-sendmessage
+              Effect: Allow
+              Principal:
+                AWS: "*"
+              Action: SQS:SendMessage
+              Resource: !GetAtt ingestQueue.Arn
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref ingestTopic
+    ingestSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Endpoint: !GetAtt ingestQueue.Arn
+        Protocol: sqs
+        Region: "${aws:region}"
+        TopicArn: !Ref ingestTopic
+    OpenSearchInstance:
+      Type: AWS::OpenSearchService::Domain
+      DeletionPolicy: Retain
+      UpdateReplacePolicy: Retain
+      UpdatePolicy:
+        EnableVersionUpgrade: true
+      Properties:
+        DomainName: ${self:service}-${sls:stage}
+        EBSOptions:
+          EBSEnabled: true
+          VolumeType: gp3
+          VolumeSize: 35
+        ClusterConfig:
+          InstanceType: t3.small.search
+          InstanceCount: 1
+          DedicatedMasterEnabled: false
+          ZoneAwarenessEnabled: false
+        EngineVersion: OpenSearch_2.11
+        DomainEndpointOptions:
+          EnforceHTTPS: true
+        NodeToNodeEncryptionOptions:
+          Enabled: true
+        EncryptionAtRestOptions:
+          Enabled: true
+        AdvancedSecurityOptions:
+          Enabled: true # enables fine-grained access control
+          InternalUserDatabaseEnabled: true
+          # When deploying to a new environment for this first time, the master user
+          # must be set. Uncomment this, deploy, and then re-comment it before deploying
+          # again to an existing deployment
+          MasterUserOptions:
+            MasterUserName: admin
+            MasterUserPassword: ${env:OPENSEARCH_MASTER_USER_PASSWORD}
+        AccessPolicies:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Principal: { "AWS": "*" }
+              Action: "es:ESHttp*"
+              Resource: "arn:aws:es:${aws:region}:${aws:accountId}:domain/${self:service}-${sls:stage}/*"
+
+  Outputs:
+    OpenSearchEndpoint:
+      Value:
+        Fn::GetAtt: [OpenSearchInstance, DomainEndpoint]
+      Export:
+        Name: ${self:service}-${sls:stage}-os-endpoint
+
+plugins:
+  - serverless-offline
