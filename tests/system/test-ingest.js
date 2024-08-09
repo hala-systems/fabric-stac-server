@@ -391,11 +391,11 @@ test('Ingested collection is published to post-ingest SNS topic with updated lin
 test('Ingest collection failure is published to post-ingest SNS topic', async (t) => {
   const { message, attrs } = await testPostIngestSNS(t, {
     type: 'Collection',
-    id: 'badCollection'
+    id: 'badCollection'.toLowerCase()
   }, true)
 
-  t.is(message.record.id, 'badCollection')
-  t.is(attrs.collection.Value, 'badCollection')
+  t.is(message.record.id, 'badCollection'.toLowerCase())
+  t.is(attrs.collection.Value, 'badCollection'.toLowerCase())
   t.is(attrs.ingestStatus.Value, 'failed')
   t.is(attrs.recordType.Value, 'Collection')
   t.is(undefined, attrs.start_unix_epoch_ms_offset)
@@ -480,11 +480,11 @@ test('Ingest item failure is published to post-ingest SNS topic', async (t) => {
 
   const { message, attrs } = await testPostIngestSNS(t, {
     type: 'Feature',
-    id: 'badItem',
+    id: 'badItem'.toLowerCase(),
     collection: collection.id
   }, true)
 
-  t.is(message.record.id, 'badItem')
+  t.is(message.record.id, 'badItem'.toLowerCase())
   t.is(attrs.collection.Value, collection.id)
   t.is(attrs.ingestStatus.Value, 'failed')
   t.is(attrs.recordType.Value, 'Item')

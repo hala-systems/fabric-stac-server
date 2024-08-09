@@ -15,9 +15,9 @@ provider:
       accessLogging: false
       format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","useragent" : "$context.identity.userAgent","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
   environment:
-    STAC_ID: "stac-server"
-    STAC_TITLE: "STAC API"
-    STAC_DESCRIPTION: "A STAC API using stac-server"
+    STAC_ID: 'stac-server'
+    STAC_TITLE: 'STAC API'
+    STAC_DESCRIPTION: 'A STAC API using stac-server'
     LOG_LEVEL: debug
     STAC_DOCS_URL: https://stac-utils.github.io/stac-server/
     OPENSEARCH_HOST:
@@ -25,21 +25,21 @@ provider:
     ENABLE_TRANSACTIONS_EXTENSION: false
     OPENSEARCH_CREDENTIALS_SECRET_ID: ${self:service}-${self:provider.stage}-opensearch-user-creds
     # comment STAC_API_ROOTPATH if deployed with a custom domain
-    STAC_API_ROOTPATH: "/${self:provider.stage}"
+    STAC_API_ROOTPATH: '/${self:provider.stage}'
     # PRE_HOOK: ${self:service}-${self:provider.stage}-preHook
     # API_KEYS_SECRET_ID: ${self:service}-${self:provider.stage}-api-keys
     # POST_HOOK: ${self:service}-${self:provider.stage}-postHook
     # If you will be subscribing to post-ingest SNS notifications make
     # sure that STAC_API_URL is set so that links are updated correctly
-    STAC_API_URL: "https://some-stac-server.example.com"
-    CORS_ORIGIN: "https://ui.example.com"
+    STAC_API_URL: 'https://some-stac-server.example.com'
+    CORS_ORIGIN: 'https://ui.example.com'
     CORS_CREDENTIALS: true
   iam:
     role:
       statements:
         - Effect: Allow
-          Resource: "arn:aws:es:${aws:region}:${aws:accountId}:domain/*"
-          Action: "es:*"
+          Resource: 'arn:aws:es:${aws:region}:${aws:accountId}:domain/*'
+          Action: 'es:*'
         - Effect: Allow
           Action:
             - sqs:GetQueueUrl
@@ -55,7 +55,7 @@ provider:
             Fn::GetAtt: [postIngestTopic, TopicArn]
         - Effect: Allow
           Action: s3:GetObject
-          Resource: "arn:aws:s3:::usgs-landsat/*"
+          Resource: 'arn:aws:s3:::usgs-landsat/*'
         - Effect: Allow
           Resource: arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:${self:provider.environment.OPENSEARCH_CREDENTIALS_SECRET_ID}-*
           Action: secretsmanager:GetSecretValue
@@ -81,11 +81,11 @@ functions:
     events:
       - http:
           method: ANY
-          path: "/"
+          path: '/'
           cors: true
       - http:
           method: ANY
-          path: "{proxy+}"
+          path: '{proxy+}'
           cors: true
   ingest:
     description: stac-server Ingest Lambda
@@ -154,7 +154,7 @@ resources:
             - Sid: allow-sqs-sendmessage
               Effect: Allow
               Principal:
-                AWS: "*"
+                AWS: '*'
               Action: SQS:SendMessage
               Resource: !GetAtt ingestQueue.Arn
               Condition:
@@ -165,7 +165,7 @@ resources:
       Properties:
         Endpoint: !GetAtt ingestQueue.Arn
         Protocol: sqs
-        Region: "${aws:region}"
+        Region: '${aws:region}'
         TopicArn: !Ref ingestTopic
     OpenSearchInstance:
       Type: AWS::OpenSearchService::Domain
@@ -184,7 +184,7 @@ resources:
           InstanceCount: 1
           DedicatedMasterEnabled: false
           ZoneAwarenessEnabled: false
-        EngineVersion: OpenSearch_2.17
+        EngineVersion: OpenSearch_2.13
         DomainEndpointOptions:
           EnforceHTTPS: true
         NodeToNodeEncryptionOptions:
@@ -201,12 +201,12 @@ resources:
             MasterUserName: admin
             MasterUserPassword: ${env:OPENSEARCH_MASTER_USER_PASSWORD}
         AccessPolicies:
-          Version: "2012-10-17"
+          Version: '2012-10-17'
           Statement:
-            - Effect: "Allow"
-              Principal: { "AWS": "*" }
-              Action: "es:ESHttp*"
-              Resource: "arn:aws:es:${aws:region}:${aws:accountId}:domain/${self:service}-${self:provider.stage}/*"
+            - Effect: 'Allow'
+              Principal: { 'AWS': '*' }
+              Action: 'es:ESHttp*'
+              Resource: 'arn:aws:es:${aws:region}:${aws:accountId}:domain/${self:service}-${self:provider.stage}/*'
   Outputs:
     OpenSearchEndpoint:
       Value:

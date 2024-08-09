@@ -32,6 +32,9 @@ export async function convertIngestObjectToDbObject(
     )
   }
 
+  // Replace whitespace with underscore in id, replace colon with dash, and convert to lowercase
+  data.id = data.id.replace(' ', '_').replace(':', '-').toLowerCase()
+
   // remove any hierarchy links in a non-mutating way
   if (!data.links) {
     throw new InvalidIngestError('Expected a "links" property on the stac object')

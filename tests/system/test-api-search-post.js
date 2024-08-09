@@ -100,8 +100,8 @@ test('/search bbox', async (t) => {
   // @ts-expect-error We need to type this response
   const ids = response.features.map((item) => item.id)
 
-  t.truthy(ids.includes('LC80100102015082LGN00'))
-  t.truthy(ids.includes('LC80100102015050LGN00'))
+  t.truthy(ids.includes('LC80100102015082LGN00'.toLowerCase()))
+  t.truthy(ids.includes('LC80100102015050LGN00'.toLowerCase()))
 
   response = await t.context.api.client.post('search', {
     json: {
@@ -122,7 +122,7 @@ test('POST /search has a content type of "application/geo+json; charset=utf-8', 
 
 test('/search default sort', async (t) => {
   const response = await t.context.api.client.post('search', { json: {} })
-  t.is(response.features[0].id, 'LC80100102015082LGN00')
+  t.is(response.features[0].id, 'LC80100102015082LGN00'.toLowerCase())
 })
 
 test('/search sort', async (t) => {
@@ -134,14 +134,14 @@ test('/search sort', async (t) => {
       }]
     }
   })
-  t.is(response.features[0].id, 'LC80100102015082LGN00')
+  t.is(response.features[0].id, 'LC80100102015082LGN00'.toLowerCase())
 
   response = await t.context.api.client.post('search', {
     json: {
       sort: '[{ "field": "eo:cloud_cover", "direction": "desc" }]'
     }
   })
-  t.is(response.features[0].id, 'LC80100102015082LGN00')
+  t.is(response.features[0].id, 'LC80100102015082LGN00'.toLowerCase())
 })
 
 test('/search flattened collection properties', async (t) => {
@@ -332,14 +332,14 @@ test('/search limit next query', async (t) => {
 test('/search ids', async (t) => {
   const response = await t.context.api.client.post('search', {
     json: {
-      ids: ['collection2_item', 'LC80100102015050LGN00']
+      ids: ['collection2_item', 'LC80100102015050LGN00'.toLowerCase()]
     }
   })
   t.is(response.features.length, 2)
 
   // @ts-expect-error We need to type this response
   const ids = response.features.map((item) => item.id)
-  t.truthy(ids.includes('LC80100102015050LGN00'))
+  t.truthy(ids.includes('LC80100102015050LGN00'.toLowerCase()))
   t.truthy(ids.includes('collection2_item'))
 })
 
@@ -358,8 +358,8 @@ test('/search collections', async (t) => {
   response = await t.context.api.client.post('search', { json: query })
 
   t.is(response.features.length, 2)
-  t.is(response.features[0].id, 'LC80100102015082LGN00')
-  t.is(response.features[1].id, 'LC80100102015050LGN00')
+  t.is(response.features[0].id, 'LC80100102015082LGN00'.toLowerCase())
+  t.is(response.features[1].id, 'LC80100102015050LGN00'.toLowerCase())
 
   query = {
     collections: ['collection2', 'landsat-8-l1']
