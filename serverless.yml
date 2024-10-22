@@ -1,4 +1,4 @@
-service: data-platform-stac
+service: fabric-stac-server
 
 provider:
   name: aws
@@ -16,17 +16,17 @@ provider:
       accessLogging: false
       format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","useragent" : "$context.identity.userAgent","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
   environment:
-    STAC_ID: 'data-platform-stac-server'
-    STAC_TITLE: 'Data Platform STAC API'
+    STAC_ID: 'fabric-stac-server'
+    STAC_TITLE: 'Fabric STAC API'
     STAC_DESCRIPTION: 'A STAC API using stac-server'
     LOG_LEVEL: debug
     STAC_DOCS_URL: https://stac-utils.github.io/stac-server/
-    OPEN_SEARCH_MASTER_USERNAME: ${ssm:/${sls:stage}/data-platform/stac-server/opensearch/username}
-    OPEN_SEARCH_MASTER_PASSWORD: ${ssm:/${sls:stage}/data-platform/stac-server/opensearch/password}
+    OPEN_SEARCH_MASTER_USERNAME: ${self:custom.opensearch_creds.username}
+    OPEN_SEARCH_MASTER_PASSWORD: ${self:custom.opensearch_creds.password}
     OPENSEARCH_HOST:
       Fn::GetAtt: [OpenSearchInstance, DomainEndpoint]
     ENABLE_TRANSACTIONS_EXTENSION: false
-    OPENSEARCH_CREDENTIALS_SECRET_ID: ${self:service}-${sls:stage}-opensearch-user-creds
+    OPENSEARCH_CREDENTIALS_SECRET_ID: fabric-${sls:stage}-opensearch-user-creds
     # comment STAC_API_ROOTPATH if deployed with a custom domain
     STAC_API_ROOTPATH: '/${sls:stage}'
     # PRE_HOOK: ${self:service}-${sls:stage}-preHook
@@ -34,8 +34,8 @@ provider:
     # POST_HOOK: ${self:service}-${sls:stage}-postHook
     # If you will be subscribing to post-ingest SNS notifications make
     # sure that STAC_API_URL is set so that links are updated correctly
-    STAC_API_URL: 'https://b1138y3iae.execute-api.us-east-1.amazonaws.com/stg'
-    CORS_ORIGIN: 'https://ui.example.com'
+    STAC_API_URL: 'https://3auofrizcl.execute-api.us-east-1.amazonaws.com/stg'
+    CORS_ORIGIN: 'https://3auofrizcl.execute-api.us-east-1.amazonaws.com/stg'
     CORS_CREDENTIALS: false
   iam:
     role:
@@ -67,7 +67,9 @@ provider:
             - s3:GetObject
             - s3:PutObject
             - s3:ListBucket
-          Resource: 'arn:aws:s3:::data-platform-stg-stac-repository/*'
+          Resource: 
+            - 'arn:aws:s3:::fabric-${sls:stage}-stac-repository/*'
+            - 'arn:aws:s3:::fabric-${sls:stage}-stac-repository'
         # - Effect: Allow
         #   Action: lambda:InvokeFunction
         #   Resource: arn:aws:lambda:${aws:region}:${aws:accountId}:function:${self:service}-${sls:stage}-preHook
@@ -81,11 +83,12 @@ provider:
 custom:
   stages:
     dev:
-      profile: Data-Platform-Staging
+      profile: Fabric-Staging
     stg:
-      profile: Data-Platform-Staging
+      profile: Fabric-Staging
     prd:
-      profile: Data-Platform-Production
+      profile: Fabric-Production
+  opensearch_creds: ${ssm:/aws/reference/secretsmanager/fabric-${sls:stage}-opensearch-user-creds}
 
 package:
   individually: true
