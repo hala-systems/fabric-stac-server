@@ -18,3 +18,7 @@ _book
 !serverless.example.yml
 tsconfig.tsbuildinfo
 docs/
+
+test.js
+test.json
+test2.json
