@@ -58,6 +58,63 @@ const stacItemsFromSqsEvent = async (event) => {
   )).flat()
 }
 
+const getOrderResultFromItems = (orderItemResults) => {
+  const message = orderItemResults.reduce((msg, itemResult) => {
+    if ('error' in itemResult) {
+      logger.warn(`Item ${itemResult.record.id} failed to ingest.`
+        + ` Error: ${itemResult.error.message}`)
+      msg += `${msg.length === 0 ? '' : '\n'}` // Newline if there are multiple errors
+        + `Item ${itemResult.record.id} failed to ingest.`
+        + ` Error: ${itemResult.error.message}`
+    }
+    return msg
+  }, '')
+
+  if (message.length) {
+    return {
+      status: 'FAIL',
+      message,
+    }
+  }
+
+  return {
+    status: 'SUCCESS'
+  }
+}
+
+const getOrderResults = (event, itemResults) => {
+  if (!isSqsEvent(event)) return []
+
+  const records = event.Records
+
+  const orderResults = []
+  let startIndex = 0
+  for (const record of records) {
+    const recordBody = JSON.parse(record.body)
+
+    // Check if the record is an SNS notification and has an order_id
+    if (isSnsMessage(recordBody) && 'order_id' in JSON.parse(recordBody.Message)) {
+      const message = JSON.parse(recordBody.Message)
+
+      const endIndex = startIndex + message.items.length
+      const orderItemResults = itemResults.slice(startIndex, endIndex)
+
+      const orderResultObject = getOrderResultFromItems(orderItemResults)
+
+      orderResults.push({
+        orderId: message.order_id,
+        ...orderResultObject,
+      })
+      startIndex = endIndex
+    } else {
+      // In any other case, there was only a single item ingested, and we can skip it
+      startIndex += 1
+    }
+  }
+
+  return orderResults
+}
+
 export const handler = async (event, _context) => {
   logger.debug('Event: %j', event)
 
@@ -89,6 +146,13 @@ export const handler = async (event, _context) => {
       await publishResultsToSns(results, postIngestTopicArn)
     } else {
       logger.debug('Skipping post-ingest notification since no topic is configured')
+    }
+
+    const orderResults = getOrderResults(event, results)
+    if (orderResults.length) {
+      // Publish event to event bridge for each orderResult
+      logger.info(`Sending ${orderResults.length} order result`
+        + `${orderResults.length > 1 ? 's' : ''} to EventBridge`)
     }
 
     if (errorCount) throw new Error('There was at least one error ingesting items.')

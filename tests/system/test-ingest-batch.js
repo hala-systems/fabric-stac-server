@@ -2,7 +2,6 @@
 
 import test from 'ava'
 import nock from 'nock'
-import { DateTime } from 'luxon'
 import { getCollectionIds, getItem } from '../helpers/api.js'
 import { handler } from '../../src/lambdas/ingest/index.js'
 import { loadFixture, randomId } from '../helpers/utils.js'
