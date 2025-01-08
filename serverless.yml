@@ -67,7 +67,7 @@ provider:
             - s3:GetObject
             - s3:PutObject
             - s3:ListBucket
-          Resource: 
+          Resource:
             - 'arn:aws:s3:::fabric-${sls:stage}-stac-repository/*'
             - 'arn:aws:s3:::fabric-${sls:stage}-stac-repository'
         # - Effect: Allow
@@ -84,10 +84,13 @@ custom:
   stages:
     dev:
       profile: Fabric-Staging
+      POST_INGEST_EVENT_BUS_NAME: dev-fabric-bus
     stg:
       profile: Fabric-Staging
+      POST_INGEST_EVENT_BUS_NAME: dev-fabric-bus
     prd:
       profile: Fabric-Production
+      POST_INGEST_EVENT_BUS_NAME: dev-fabric-bus
   opensearch_creds: ${ssm:/aws/reference/secretsmanager/fabric-${sls:stage}-opensearch-user-creds}
 
 package:
@@ -115,6 +118,7 @@ functions:
     timeout: 60
     environment:
       POST_INGEST_TOPIC_ARN: !Ref postIngestTopic
+      POST_INGEST_EVENT_BUS_NAME: ${self:custom.stages.${sls:stage}.POST_INGEST_EVENT_BUS_NAME}
     package:
       artifact: dist/ingest/ingest.zip
     events:

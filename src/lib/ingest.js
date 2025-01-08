@@ -4,6 +4,8 @@ import { dbClient, createIndex } from './database-client.js'
 import logger from './logger.js'
 import { publishRecordToSns } from './sns.js'
 import { isCollection, isItem } from './stac-utils.js'
+import { publishRecordsToEventBridge } from './eventbridge.js'
+import { getRequiredEnvVar } from './utils.js'
 
 const COLLECTIONS_INDEX = process.env['COLLECTIONS_INDEX'] || 'collections'
 
@@ -197,4 +199,18 @@ export async function publishResultsToSns(results, topicArn) {
     }
     await publishRecordToSns(topicArn, result.record, result.error)
   }))
+}
+
+export async function publishResultsToEventBridge(results) {
+  const postIngestEventBus = getRequiredEnvVar('POST_INGEST_EVENT_BUS_NAME')
+  const source = 'stac.ingest.lambda'
+  const detailType = 'StacIngestCompleted'
+  const result = await publishRecordsToEventBridge(
+    results,
+    postIngestEventBus,
+    source,
+    detailType,
+    [],
+  )
+  return result
 }

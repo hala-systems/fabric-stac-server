@@ -1,7 +1,8 @@
 /* eslint-disable import/prefer-default-export */
 import got from 'got' // eslint-disable-line import/no-unresolved
+// import { PutEventsCommand } from '@aws-sdk/client-eventbridge'
 import { createIndex } from '../../lib/database-client.js'
-import { ingestItems, publishResultsToSns } from '../../lib/ingest.js'
+import { ingestItems, publishResultsToEventBridge, publishResultsToSns } from '../../lib/ingest.js'
 import getObjectJson from '../../lib/s3-utils.js'
 import logger from '../../lib/logger.js'
 
@@ -58,9 +59,20 @@ const stacItemsFromSqsEvent = async (event) => {
   )).flat()
 }
 
+/**
+ * The result for ingesting an order.
+ * @typedef {Object} OrderIngestResult
+ * @property {string} status - Result of ingestion - 'SUCCESS' / 'FAIL'
+ * @property {string} [message] - The error message if the status is 'FAIL'
+ */
+
+/**
+ * @param {any} orderItemResults
+ * @returns {OrderIngestResult}
+ */
 const getOrderResultFromItems = (orderItemResults) => {
   const message = orderItemResults.reduce((msg, itemResult) => {
-    if ('error' in itemResult) {
+    if (itemResult.error) {
       logger.warn(`Item ${itemResult.record.id} failed to ingest.`
         + ` Error: ${itemResult.error.message}`)
       msg += `${msg.length === 0 ? '' : '\n'}` // Newline if there are multiple errors
@@ -70,16 +82,9 @@ const getOrderResultFromItems = (orderItemResults) => {
     return msg
   }, '')
 
-  if (message.length) {
-    return {
-      status: 'FAIL',
-      message,
-    }
-  }
+  if (message.length) return { status: 'FAIL', message }
 
-  return {
-    status: 'SUCCESS'
-  }
+  return { status: 'SUCCESS' }
 }
 
 const getOrderResults = (event, itemResults) => {
@@ -153,6 +158,7 @@ export const handler = async (event, _context) => {
       // Publish event to event bridge for each orderResult
       logger.info(`Sending ${orderResults.length} order result`
         + `${orderResults.length > 1 ? 's' : ''} to EventBridge`)
+      await publishResultsToEventBridge(orderResults)
     }
 
     if (errorCount) throw new Error('There was at least one error ingesting items.')

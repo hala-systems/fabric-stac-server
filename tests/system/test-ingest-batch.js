@@ -2,12 +2,13 @@
 
 import test from 'ava'
 import nock from 'nock'
+import { randomUUID } from 'crypto'
 import { getCollectionIds, getItem } from '../helpers/api.js'
 import { handler } from '../../src/lambdas/ingest/index.js'
 import { loadFixture, randomId } from '../helpers/utils.js'
 import { refreshIndices, deleteAllIndices } from '../helpers/database.js'
 import { sqsTriggerLambda, purgeQueue } from '../helpers/sqs.js'
-import { sns, s3 as _s3 } from '../../src/lib/aws-clients.js'
+import { sns, s3 as _s3, sqs as _sqs } from '../../src/lib/aws-clients.js'
 import { setup } from '../helpers/system-tests.js'
 import { ingestItemC, ingestFixtureC } from '../helpers/ingest.js'
 
@@ -28,47 +29,26 @@ test.before(async (t) => {
 })
 
 test.beforeEach(async (t) => {
-  const { ingestQueueUrl, ingestTopicArn } = t.context
+  const { ingestQueueUrl, ingestTopicArn, eventBridgeQueueUrl } = t.context
 
   if (ingestQueueUrl === undefined) throw new Error('No ingest queue url')
   if (ingestTopicArn === undefined) throw new Error('No ingest topic ARN')
 
+  process.env['POST_INGEST_EVENT_BUS_NAME'] = 'default'
   await purgeQueue(ingestQueueUrl)
+  await purgeQueue(eventBridgeQueueUrl)
 })
 
 test.afterEach.always(() => {
   nock.cleanAll()
 })
 
-test('The ingest lambda supports ingesting a batch of items in order', async (t) => {
+const ingestItems = async (t, filepaths) => {
   const { ingestQueueUrl, ingestTopicArn } = t.context
 
   const s3 = _s3()
 
-  // Load the collection to be ingested
-  const collection = await loadFixture(
-    'landsat-8-l1-collection.json',
-    { id: randomId('collection') }
-  )
-  const itemFilepaths = [
-    'stac/LC80100102015050LGN00.json',
-    'stac/LC80100102015082LGN00.json',
-  ]
-  const [item1, item2] = await Promise.all(
-    itemFilepaths.map((path, index) => loadFixture(
-      path,
-      {
-        id: randomId(`item-${index + 1}`),
-        collection: collection.id
-      }
-    ))
-  )
-  const [itemKey1, itemKey2] = [randomId('key-1'), randomId('key-2')]
-
-  // Create the S3 bucket to source the collection from
   const sourceBucket = randomId('bucket')
-  const collectionKey = randomId('key')
-
   await s3.createBucket({
     Bucket: sourceBucket,
     CreateBucketConfiguration: {
@@ -76,44 +56,88 @@ test('The ingest lambda supports ingesting a batch of items in order', async (t)
     }
   })
 
-  await s3.putObject({
-    Bucket: sourceBucket,
-    Key: collectionKey,
-    Body: JSON.stringify(collection)
+  const orderId = randomUUID()
+  const collectionId = randomId('collection')
+
+  const promises = filepaths.map(async (path, index) => {
+    const fixtureParams = {
+      id: index === 0 ? collectionId : randomId('item'),
+      collection: index === 0 ? undefined : collectionId,
+    }
+    const fixture = await loadFixture(path, fixtureParams)
+
+    await s3.putObject({
+      Bucket: sourceBucket,
+      Key: fixture.id,
+      Body: JSON.stringify(fixture)
+    })
+
+    return fixture.id
   })
 
-  await s3.putObject({
-    Bucket: sourceBucket,
-    Key: itemKey1,
-    Body: JSON.stringify(item1)
-  })
-
-  await s3.putObject({
-    Bucket: sourceBucket,
-    Key: itemKey2,
-    Body: JSON.stringify(item2)
-  })
+  const keys = await Promise.all(promises)
 
   await sns().publish({
     TopicArn: ingestTopicArn,
     Message: JSON.stringify({
-      items: [
-        `s3://${sourceBucket}/${collectionKey}`,
-        `s3://${sourceBucket}/${itemKey1}`,
-        `s3://${sourceBucket}/${itemKey2}`
-      ]
+      order_id: orderId,
+      items: keys.map((key) => `s3://${sourceBucket}/${key}`)
     })
   })
 
   await sqsTriggerLambda(ingestQueueUrl, handler)
-
   await refreshIndices()
 
-  const collectionIds = await getCollectionIds(t.context.api.client)
-  t.true(collectionIds.includes(collection.id))
+  return {
+    orderId,
+    keys: keys
+  }
+}
 
-  const fetchedItem1 = await getItem(t.context.api.client, collection.id, item1.id)
-  const fetchedItem2 = await getItem(t.context.api.client, collection.id, item2.id)
+test('The ingest lambda supports ingesting a batch of items in order', async (t) => {
+  const { keys } = await ingestItems(t, [
+    'landsat-8-l1-collection.json',
+    'stac/LC80100102015050LGN00.json',
+    'stac/LC80100102015082LGN00.json',
+  ])
+
+  const [collectionKey, item1Key, item2Key] = keys
+
+  const collectionIds = await getCollectionIds(t.context.api.client)
+  t.true(collectionIds.includes(collectionKey))
+
+  const fetchedItem1 = await getItem(t.context.api.client, collectionKey, item1Key)
+  const fetchedItem2 = await getItem(t.context.api.client, collectionKey, item2Key)
 
   t.true(fetchedItem2.properties.created > fetchedItem1.properties.created)
+})
+
+test('Should publish SUCCESS event after ingesting order', async (t) => {
+  const { orderId } = await ingestItems(t, [
+    'landsat-8-l1-collection.json',
+    'stac/LC80100102015050LGN00.json',
+    'stac/LC80100102015082LGN00.json',
+  ])
+
+  const { Messages } = await _sqs().receiveMessage({
+    QueueUrl: t.context.eventBridgeQueueUrl,
+    WaitTimeSeconds: 2
+  })
+
+  t.truthy(Messages, 'Post-ingest message not found in queue')
+  t.false(Messages && Messages.length > 1, 'More than one message in post-ingest queue')
+
+  // Test will fail in case Messages[0] or Body is undefined.
+  const messageBody = JSON.parse(Messages[0].Body)
+
+  // Verify event parameters
+  t.is(messageBody['detail-type'], 'StacIngestCompleted')
+  t.is(messageBody['source'], 'stac.ingest.lambda')
+  t.deepEqual(messageBody['resources'], [])
+
+  // Verify event data
+  t.truthy(messageBody.detail)
+  const { orderId: actualOrderId, status: actualStatus } = messageBody.detail
+  t.is(actualOrderId, orderId, 'Received incorrect orderID')
+  t.is(actualStatus, 'SUCCESS', 'Received incorrect status')
 })
