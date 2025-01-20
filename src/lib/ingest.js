@@ -1,10 +1,12 @@
-import { getItemCreated } from './database.js'
 import { addItemLinks, addCollectionLinks } from './api.js'
+import { getItemCreated } from './database.js'
 import { dbClient, createIndex } from './database-client.js'
-import logger from './logger.js'
 import { publishRecordToSns } from './sns.js'
 import { isCollection, isItem } from './stac-utils.js'
 import { publishRecordsToEventBridge } from './eventbridge.js'
+import { convertToEventBridgeEvent, validateIngestionCompletedEventSchema }
+  from './eventbridge-utils.js'
+import logger from './logger.js'
 import { getRequiredEnvVar } from './utils.js'
 
 const COLLECTIONS_INDEX = process.env['COLLECTIONS_INDEX'] || 'collections'
@@ -201,16 +203,48 @@ export async function publishResultsToSns(results, topicArn) {
   }))
 }
 
+/**
+ * @typedef {import('../lambdas/ingest/index.js').OrderIngestResult} OrderIngestResult
+ * @typedef {import('@aws-sdk/client-eventbridge').PutEventsCommandOutput} PutEventsCommandOutput
+ * @typedef {import('@aws-sdk/client-eventbridge').PutEventsRequestEntry} PutEventsRequestEntry
+ */
+
+/**
+ * Checks all of the results against the IngestionCompletedEventSchema
+ * Throws an error if the validation fails for any event
+ * @param {OrderIngestResult[]} results
+ * @returns {undefined}
+ */
+export function validateResultSchemaOrThrow(results) {
+  const errors = results
+    .map((result) => validateIngestionCompletedEventSchema(result))
+    .filter((error) => error !== undefined)
+
+  if (errors.length) {
+    throw new Error('Failed to publish results to event bridge.'
+      + ` Event format validation errors: ${JSON.stringify(errors)}`)
+  }
+}
+
+/**
+ *
+ * @param {OrderIngestResult[]} results
+ * @returns {Promise<PutEventsCommandOutput>}
+ */
 export async function publishResultsToEventBridge(results) {
-  const postIngestEventBus = getRequiredEnvVar('POST_INGEST_EVENT_BUS_NAME')
-  const source = 'stac.ingest.lambda'
-  const detailType = 'StacIngestCompleted'
+  validateResultSchemaOrThrow(results)
+
+  const eventBusName = getRequiredEnvVar('POST_INGEST_EVENT_BUS_NAME')
+
+  const events = results.map((result) => convertToEventBridgeEvent(
+    eventBusName,
+    result,
+  ))
+
   const result = await publishRecordsToEventBridge(
-    results,
-    postIngestEventBus,
-    source,
-    detailType,
-    [],
+    events,
+    eventBusName,
   )
+
   return result
 }

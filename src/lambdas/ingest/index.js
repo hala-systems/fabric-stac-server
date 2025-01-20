@@ -61,14 +61,22 @@ const stacItemsFromSqsEvent = async (event) => {
 
 /**
  * The result for ingesting an order.
+ * @typedef {Object} OrderItemResult
+ * @property {string} status - Result of ingestion - 'SUCCESS' / 'FAIL'
+ * @property {string} [message] - The error message if the status is 'FAIL'
+ */
+
+/**
+ * The result for ingesting an order.
  * @typedef {Object} OrderIngestResult
+ * @property {string} orderId - The data provider order ID
  * @property {string} status - Result of ingestion - 'SUCCESS' / 'FAIL'
  * @property {string} [message] - The error message if the status is 'FAIL'
  */
 
 /**
  * @param {any} orderItemResults
- * @returns {OrderIngestResult}
+ * @returns {OrderItemResult}
  */
 const getOrderResultFromItems = (orderItemResults) => {
   const message = orderItemResults.reduce((msg, itemResult) => {
@@ -87,6 +95,11 @@ const getOrderResultFromItems = (orderItemResults) => {
   return { status: 'SUCCESS' }
 }
 
+/**
+ * @param {any} event
+ * @param {any} itemResults
+ * @returns {OrderIngestResult[]}
+ */
 const getOrderResults = (event, itemResults) => {
   if (!isSqsEvent(event)) return []
 

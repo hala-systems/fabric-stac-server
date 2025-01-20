@@ -2,30 +2,27 @@ import { PutEventsCommand } from '@aws-sdk/client-eventbridge'
 import { eventBridge } from './aws-clients.js'
 import logger from './logger.js'
 
+/**
+ * @typedef {import('@aws-sdk/client-eventbridge').PutEventsRequestEntry} PutEventsRequestEntry
+ */
+
+/**
+ * @param {PutEventsRequestEntry[]} events
+ * @param {string} eventBusName
+*/
 /* eslint-disable-next-line import/prefer-default-export */
 export async function publishRecordsToEventBridge(
-  payloads,
+  events,
   eventBusName,
-  source,
-  detailType,
-  resources
 ) {
-  let result
   try {
-    const command = new PutEventsCommand({
-      Entries: payloads.map((orderData) => ({
-        EventBusName: eventBusName,
-        Source: source,
-        DetailType: detailType,
-        Detail: JSON.stringify(orderData),
-        Resources: resources,
-      }))
-    })
-    result = await eventBridge().send(command)
+    const command = new PutEventsCommand({ Entries: events })
+    const result = await eventBridge().send(command)
+
     if (result.Entries) {
       result.Entries.forEach((entry) => {
         if (entry.ErrorMessage) {
-          logger.error(`Failed to write event ${result?.EventId}`
+          logger.error(`Failed to write event ${entry?.EventId}`
             + ` to ${eventBusName}: ${entry.ErrorMessage}`)
         }
         logger.info(`Wrote event ${entry?.EventId} to ${eventBusName} bus`)
