@@ -23,6 +23,8 @@ provider:
     STAC_DOCS_URL: https://stac-utils.github.io/stac-server/
     OPEN_SEARCH_MASTER_USERNAME: ${self:custom.opensearch_creds.username}
     OPEN_SEARCH_MASTER_PASSWORD: ${self:custom.opensearch_creds.password}
+    ITEMS_INDICIES_NUM_OF_SHARDS: 1
+    ITEMS_INDICIES_NUM_OF_REPLICAS: 1
     OPENSEARCH_HOST:
       Fn::GetAtt: [OpenSearchInstance, DomainEndpoint]
     ENABLE_TRANSACTIONS_EXTENSION: false
