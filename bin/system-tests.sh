@@ -9,7 +9,7 @@ export AWS_SECRET_ACCESS_KEY='none'
 export ENABLE_TRANSACTIONS_EXTENSION=true
 export REQUEST_LOGGING_ENABLED=false
 
-echo "Running tests"
+echo "Running system tests"
 set +e
 npx ava "./tests/system/${TEST_PATTERN}" --serial --verbose
 TEST_RESULT="$?"

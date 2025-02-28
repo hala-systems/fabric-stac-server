@@ -1,0 +1,30 @@
+{
+  "presets": [
+    [
+      "@babel/preset-env",
+      {
+        "targets": {
+          "node": "20"
+        }
+      }
+    ]
+  ],
+  "env": {
+    "test": {
+      "plugins": [
+        "istanbul",
+        "import-graphql",
+        "@babel/plugin-transform-runtime",
+        [
+          "module-resolver",
+          {
+            "root": ["./src"],
+            "alias": {
+              "test": "./test"
+            }
+          }
+        ]
+      ]
+    }
+  }
+}

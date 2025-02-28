@@ -7,6 +7,7 @@ import { startApi } from './api.js'
 import { createCollectionsIndex, refreshIndices } from './database.js'
 import { createTopic, addSnsToSqsSubscription } from './sns.js'
 import { createQueue, getQueueArn } from './sqs.js'
+import { addEventBridgeToSqsSubscription } from './eventbridge.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename) // eslint-disable-line no-unused-vars
@@ -21,6 +22,8 @@ export const setupResources = async () => {
   const ingestQueueArn = await getQueueArn(ingestQueueUrl)
   const postIngestQueueUrl = await createQueue()
   const postIngestQueueArn = await getQueueArn(postIngestQueueUrl)
+  const eventBridgeQueueUrl = await createQueue()
+  const eventBridgeQueueArn = await getQueueArn(eventBridgeQueueUrl)
 
   // Subscribe SQS queue to ingest SNS topic
   await addSnsToSqsSubscription(
@@ -34,6 +37,11 @@ export const setupResources = async () => {
     postIngestQueueArn
   )
 
+  await addEventBridgeToSqsSubscription(
+    eventBridgeQueueArn,
+    eventBridgeQueueUrl
+  )
+
   // Create ES collections index
   await createCollectionsIndex()
 
@@ -43,7 +51,9 @@ export const setupResources = async () => {
     ingestQueueUrl,
     ingestTopicArn,
     postIngestQueueUrl,
-    postIngestTopicArn
+    postIngestTopicArn,
+    eventBridgeQueueUrl,
+    eventBridgeQueueArn,
   }
 }
 
@@ -58,6 +68,7 @@ export const setupResources = async () => {
  * @property {string} ingestTopicArn
  * @property {string} postIngestQueueUrl
  * @property {string} postIngestTopicArn
+ * @property {string} eventBridgeQueueUrl
  */
 
 /**
@@ -72,6 +83,7 @@ export const setup = async () => {
     ingestTopicArn,
     postIngestQueueUrl,
     postIngestTopicArn,
+    eventBridgeQueueUrl,
   } = await setupResources()
 
   const api = await startApi()
@@ -81,7 +93,8 @@ export const setup = async () => {
     ingestQueueUrl,
     ingestTopicArn,
     postIngestQueueUrl,
-    postIngestTopicArn
+    postIngestTopicArn,
+    eventBridgeQueueUrl,
   }
 }
 

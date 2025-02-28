@@ -1,5 +1,5 @@
 {
-  "displayName": "stac-server",
+  "displayName": "fabric-stac-server-2-electric-boogaloo",
   "description": "A STAC API running on stac-server",
   "version": "3.9.0",
   "repository": "https://github.com/stac-utils/stac-server",
@@ -62,18 +62,21 @@
     "url": "https://github.com/stac-utils/stac-server/issues"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.575.0",
-    "@aws-sdk/client-secrets-manager": "^3.575.0",
+    "@aws-sdk/client-eventbridge": "^3.716.0",
+    "@aws-sdk/client-s3": "^3.614.0",
+    "@aws-sdk/client-secrets-manager": "^3.699.0",
     "@aws-sdk/client-sns": "^3.575.0",
     "@aws-sdk/client-sqs": "^3.575.0",
-    "@aws-sdk/credential-provider-node": "^3.575.0",
-    "@aws-sdk/s3-request-presigner": "^3.575.0",
+    "@aws-sdk/credential-provider-node": "^3.699.0",
+    "@aws-sdk/s3-request-presigner": "^3.614.0",
     "@mapbox/extent": "^0.4.0",
     "@opensearch-project/opensearch": "^2.13.0",
-    "@redocly/cli": "^1.12.2",
+    "@redocly/cli": "^1.18.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "got": "^13.0",
+    "got": "^14.4.5",
     "http-errors": "^2.0.0",
     "lodash-es": "^4.17.21",
     "memorystream": "^0.3.1",
@@ -88,7 +91,8 @@
   },
   "devDependencies": {
     "@ava/typescript": "^4.1.0",
-    "@stoplight/spectral-cli": "^6.11.1",
+    "@babel/register": "^7.25.9",
+    "@stoplight/spectral-cli": "^6.14.2",
     "@tsconfig/node18": "^18.2.4",
     "@types/aws-lambda": "^8.10.137",
     "@types/cors": "^2.8.17",
@@ -100,7 +104,7 @@
     "@types/node": "^18.11",
     "@types/sinon": "^17.0.3",
     "@typescript-eslint/eslint-plugin": "^7.9.0",
-    "@typescript-eslint/parser": "^7.9.0",
+    "@typescript-eslint/parser": "^7.16.0",
     "ava": "^5.3",
     "aws-event-mocks": "^0.0.0",
     "aws-sdk-client-mock": "^4.0.0",
@@ -122,13 +126,16 @@
     "proxyquire": "^2.1.3",
     "serverless": "^3.38.0",
     "serverless-offline": "^13.5.0",
-    "sinon": "^17.0.1",
+    "sinon": "^19.0.2",
     "ts-node": "^10.9.2",
     "tslib": "^2.6.2",
     "typescript": "^5.4.5",
     "webpack": "^5.91.0",
     "webpack-cli": "^5.1.4",
     "zip-webpack-plugin": "^4.0.1"
+  },
+  "overrides": {
+    "cross-spawn": "^7.0.1"
   },
   "name": "stac-server"
 }

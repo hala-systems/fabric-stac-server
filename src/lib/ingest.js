@@ -1,9 +1,13 @@
-import { getItemCreated } from './database.js'
 import { addItemLinks, addCollectionLinks } from './api.js'
+import { getItemCreated } from './database.js'
 import { dbClient, createIndex } from './database-client.js'
-import logger from './logger.js'
 import { publishRecordToSns } from './sns.js'
 import { isCollection, isItem } from './stac-utils.js'
+import { publishRecordsToEventBridge } from './eventbridge.js'
+import { convertToEventBridgeEvent, validateIngestionCompletedEventSchema }
+  from './eventbridge-utils.js'
+import logger from './logger.js'
+import { getRequiredEnvVar } from './utils.js'
 
 const COLLECTIONS_INDEX = process.env['COLLECTIONS_INDEX'] || 'collections'
 
@@ -31,6 +35,9 @@ export async function convertIngestObjectToDbObject(
       `Expected data.type to be "Collection" or "Feature" not ${data.type}`
     )
   }
+
+  // Replace whitespace with underscore in id, replace colon with dash, and convert to lowercase
+  data.id = data.id.replace(' ', '_').replace(':', '-').toLowerCase()
 
   // remove any hierarchy links in a non-mutating way
   if (!data.links) {
@@ -194,4 +201,50 @@ export async function publishResultsToSns(results, topicArn) {
     }
     await publishRecordToSns(topicArn, result.record, result.error)
   }))
+}
+
+/**
+ * @typedef {import('../lambdas/ingest/index.js').OrderIngestResult} OrderIngestResult
+ * @typedef {import('@aws-sdk/client-eventbridge').PutEventsCommandOutput} PutEventsCommandOutput
+ * @typedef {import('@aws-sdk/client-eventbridge').PutEventsRequestEntry} PutEventsRequestEntry
+ */
+
+/**
+ * Checks all of the results against the IngestionCompletedEventSchema
+ * Throws an error if the validation fails for any event
+ * @param {OrderIngestResult[]} results
+ * @returns {undefined}
+ */
+export function validateResultSchemaOrThrow(results) {
+  const errors = results
+    .map((result) => validateIngestionCompletedEventSchema(result))
+    .filter((error) => error !== undefined)
+
+  if (errors.length) {
+    throw new Error('Failed to publish results to event bridge.'
+      + ` Event format validation errors: ${JSON.stringify(errors)}`)
+  }
+}
+
+/**
+ *
+ * @param {OrderIngestResult[]} results
+ * @returns {Promise<PutEventsCommandOutput>}
+ */
+export async function publishResultsToEventBridge(results) {
+  validateResultSchemaOrThrow(results)
+
+  const eventBusName = getRequiredEnvVar('POST_INGEST_EVENT_BUS_NAME')
+
+  const events = results.map((result) => convertToEventBridgeEvent(
+    eventBusName,
+    result,
+  ))
+
+  const result = await publishRecordsToEventBridge(
+    events,
+    eventBusName,
+  )
+
+  return result
 }

@@ -1,13 +1,13 @@
-**Related Issue(s):** 
+## Description & Technical Solution
 
-- #
+_Paste the Asana task URL into the description so that the GitHub widget can appear when viewing the task in Asana._
 
+_Describe problems, if any, clearly and concisely. Summarize the impact to the system. Please also include relevant motivation and context. Please include a summary of the technical solution and how it solves the problem. If there are no tests, use this section to explain why._
 
-**Proposed Changes:**
+## Changes
 
-1. 
-2. 
+_Please replace this line with a summary of the changes you have made._
 
-**PR Checklist:**
+## Testing Instructions
 
-- [ ] I have added my changes to the [CHANGELOG](https://github.com/stac-utils/stac-server/blob/main/CHANGELOG.md) **or** a CHANGELOG entry is not required.
+_Please replace this line with instructions on how the reviewer can test your changes._

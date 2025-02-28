@@ -1283,7 +1283,7 @@ npm run test:unit
 npm run test:coverage
 
 # run tests from a single test file whose titles match 'foobar*'
-npx ava tests/test-es.js --match='foobar*'
+npx ava tests/unit/test-es.js --match='foobar*'
 ```
 
 ### Running System and Integration Tests

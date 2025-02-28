@@ -1,10 +1,11 @@
-service: stac-server
+service: fabric-stac-server
 
 provider:
   name: aws
   runtime: nodejs18.x
-  stage: ${opt:stage, 'dev'}
-  region: ${opt:region, 'us-west-2'}
+  stage: ${opt:stage, 'stg'}
+  region: ${opt:region, 'us-east-1'}
+  profile: ${self:custom.stages.${sls:stage}.profile}
   # uncomment this if using a bucket that already exists for deployment files
   # deploymentBucket:
   #   name: my-deployment-bucket
@@ -15,25 +16,29 @@ provider:
       accessLogging: false
       format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","useragent" : "$context.identity.userAgent","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
   environment:
-    STAC_ID: 'stac-server'
-    STAC_TITLE: 'STAC API'
+    STAC_ID: 'fabric-stac-server'
+    STAC_TITLE: 'Fabric STAC API'
     STAC_DESCRIPTION: 'A STAC API using stac-server'
     LOG_LEVEL: debug
     STAC_DOCS_URL: https://stac-utils.github.io/stac-server/
+    OPEN_SEARCH_MASTER_USERNAME: ${self:custom.opensearch_creds.username}
+    OPEN_SEARCH_MASTER_PASSWORD: ${self:custom.opensearch_creds.password}
+    ITEMS_INDICIES_NUM_OF_SHARDS: 1
+    ITEMS_INDICIES_NUM_OF_REPLICAS: 1
     OPENSEARCH_HOST:
       Fn::GetAtt: [OpenSearchInstance, DomainEndpoint]
     ENABLE_TRANSACTIONS_EXTENSION: false
-    OPENSEARCH_CREDENTIALS_SECRET_ID: ${self:service}-${self:provider.stage}-opensearch-user-creds
+    OPENSEARCH_CREDENTIALS_SECRET_ID: fabric-${sls:stage}-opensearch-user-creds
     # comment STAC_API_ROOTPATH if deployed with a custom domain
-    STAC_API_ROOTPATH: '/${self:provider.stage}'
-    # PRE_HOOK: ${self:service}-${self:provider.stage}-preHook
-    # API_KEYS_SECRET_ID: ${self:service}-${self:provider.stage}-api-keys
-    # POST_HOOK: ${self:service}-${self:provider.stage}-postHook
+    STAC_API_ROOTPATH: '/${sls:stage}'
+    # PRE_HOOK: ${self:service}-${sls:stage}-preHook
+    # API_KEYS_SECRET_ID: ${self:service}-${sls:stage}-api-keys
+    # POST_HOOK: ${self:service}-${sls:stage}-postHook
     # If you will be subscribing to post-ingest SNS notifications make
     # sure that STAC_API_URL is set so that links are updated correctly
-    STAC_API_URL: 'https://some-stac-server.example.com'
-    CORS_ORIGIN: 'https://ui.example.com'
-    CORS_CREDENTIALS: true
+    STAC_API_URL: 'https://3auofrizcl.execute-api.us-east-1.amazonaws.com/stg'
+    CORS_ORIGIN: 'https://3auofrizcl.execute-api.us-east-1.amazonaws.com/stg'
+    CORS_CREDENTIALS: false
   iam:
     role:
       statements:
@@ -59,15 +64,36 @@ provider:
         - Effect: Allow
           Resource: arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:${self:provider.environment.OPENSEARCH_CREDENTIALS_SECRET_ID}-*
           Action: secretsmanager:GetSecretValue
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:ListBucket
+          Resource:
+            - 'arn:aws:s3:::fabric-${sls:stage}-stac-repository/*'
+            - 'arn:aws:s3:::fabric-${sls:stage}-stac-repository'
         # - Effect: Allow
         #   Action: lambda:InvokeFunction
-        #   Resource: arn:aws:lambda:${aws:region}:${aws:accountId}:function:${self:service}-${self:provider.stage}-preHook
+        #   Resource: arn:aws:lambda:${aws:region}:${aws:accountId}:function:${self:service}-${sls:stage}-preHook
         # - Effect: Allow
         #   Action: secretsmanager:GetSecretValue
-        #   Resource: arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:${self:service}-${self:provider.stage}-api-keys-*
+        #   Resource: arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:${self:service}-${sls:stage}-api-keys-*
         # - Effect: Allow
         #   Action: lambda:InvokeFunction
-        #   Resource: arn:aws:lambda:${aws:region}:${aws:accountId}:function:${self:service}-${self:provider.stage}-postHook
+        #   Resource: arn:aws:lambda:${aws:region}:${aws:accountId}:function:${self:service}-${sls:stage}-postHook
+
+custom:
+  stages:
+    dev:
+      profile: Fabric-Staging
+      POST_INGEST_EVENT_BUS_NAME: dev-fabric-bus
+    stg:
+      profile: Fabric-Staging
+      POST_INGEST_EVENT_BUS_NAME: dev-fabric-bus
+    prd:
+      profile: Fabric-Production
+      POST_INGEST_EVENT_BUS_NAME: dev-fabric-bus
+  opensearch_creds: ${ssm:/aws/reference/secretsmanager/fabric-${sls:stage}-opensearch-user-creds}
 
 package:
   individually: true
@@ -94,6 +120,7 @@ functions:
     timeout: 60
     environment:
       POST_INGEST_TOPIC_ARN: !Ref postIngestTopic
+      POST_INGEST_EVENT_BUS_NAME: ${self:custom.stages.${sls:stage}.POST_INGEST_EVENT_BUS_NAME}
     package:
       artifact: dist/ingest/ingest.zip
     events:
@@ -122,7 +149,7 @@ resources:
     ingestTopic:
       Type: AWS::SNS::Topic
       Properties:
-        TopicName: ${self:service}-${self:provider.stage}-ingest
+        TopicName: ${self:service}-${sls:stage}-ingest
     postIngestTopic:
       # After a collection or item is ingested, the status of the ingest (success
       # or failure) along with details of the collection or item are sent to this
@@ -130,17 +157,17 @@ resources:
       # suscribe an endpoint to this topic
       Type: AWS::SNS::Topic
       Properties:
-        TopicName: ${self:service}-${self:provider.stage}-post-ingest
+        TopicName: ${self:service}-${sls:stage}-post-ingest
     deadLetterQueue:
       Type: AWS::SQS::Queue
       Properties:
-        QueueName: ${self:service}-${self:provider.stage}-dead-letter-queue
+        QueueName: ${self:service}-${sls:stage}-dead-letter-queue
     ingestQueue:
       Type: AWS::SQS::Queue
       Properties:
         VisibilityTimeout: 120
         ReceiveMessageWaitTimeSeconds: 5
-        QueueName: ${self:service}-${self:provider.stage}-queue
+        QueueName: ${self:service}-${sls:stage}-queue
         RedrivePolicy:
           deadLetterTargetArn: !GetAtt deadLetterQueue.Arn
           maxReceiveCount: 2
@@ -174,7 +201,7 @@ resources:
       UpdatePolicy:
         EnableVersionUpgrade: true
       Properties:
-        DomainName: ${self:service}-${self:provider.stage}
+        DomainName: ${self:service}-${sls:stage}
         EBSOptions:
           EBSEnabled: true
           VolumeType: gp3
@@ -184,7 +211,7 @@ resources:
           InstanceCount: 1
           DedicatedMasterEnabled: false
           ZoneAwarenessEnabled: false
-        EngineVersion: OpenSearch_2.13
+        EngineVersion: OpenSearch_2.11
         DomainEndpointOptions:
           EnforceHTTPS: true
         NodeToNodeEncryptionOptions:
@@ -195,24 +222,25 @@ resources:
           Enabled: true # enables fine-grained access control
           InternalUserDatabaseEnabled: true
           # When deploying to a new environment for this first time, the master user
-          # must be set. Uncomment this, deploy, and then re-comment it before deploying
-          # again to an existing deployment
+          # must be set. Afterwards it's optional
           MasterUserOptions:
-            MasterUserName: admin
-            MasterUserPassword: ${env:OPENSEARCH_MASTER_USER_PASSWORD}
+            MasterUserName: ${self:provider.environment.OPEN_SEARCH_MASTER_USERNAME}
+            MasterUserPassword: ${self:provider.environment.OPEN_SEARCH_MASTER_PASSWORD}
         AccessPolicies:
           Version: '2012-10-17'
           Statement:
             - Effect: 'Allow'
-              Principal: { 'AWS': '*' }
+              Principal:
+                AWS: '*'
               Action: 'es:ESHttp*'
-              Resource: 'arn:aws:es:${aws:region}:${aws:accountId}:domain/${self:service}-${self:provider.stage}/*'
+              Resource: 'arn:aws:es:${aws:region}:${aws:accountId}:domain/${self:service}-${sls:stage}/*'
+
   Outputs:
     OpenSearchEndpoint:
       Value:
         Fn::GetAtt: [OpenSearchInstance, DomainEndpoint]
       Export:
-        Name: ${self:service}-${self:provider.stage}-os-endpoint
+        Name: ${self:service}-${sls:stage}-os-endpoint
 
 plugins:
   - serverless-offline

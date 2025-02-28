@@ -1,6 +1,7 @@
 import { S3 } from '@aws-sdk/client-s3'
 import { SNS } from '@aws-sdk/client-sns'
 import { SQS } from '@aws-sdk/client-sqs'
+import { EventBridgeClient } from '@aws-sdk/client-eventbridge'
 
 const localStackEndpointEnvVar = 'LOCAL_STACK_ENDPOINT'
 
@@ -51,9 +52,18 @@ export const sqs = (options = {}) => {
     ...options
   })
 }
+export const eventBridge = (options = {}) => {
+  const overrides = useLocalStack() ? localStackParams() : {}
+
+  return new EventBridgeClient({
+    ...options,
+    ...overrides
+  })
+}
 
 export default {
   s3,
   sns,
-  sqs
+  sqs,
+  eventBridge
 }
