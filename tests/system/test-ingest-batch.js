@@ -131,13 +131,23 @@ test('Should publish SUCCESS event after ingesting order', async (t) => {
   const messageBody = JSON.parse(Messages[0].Body)
 
   // Verify event parameters
-  t.is(messageBody['detail-type'], 'StacIngestCompleted')
+  t.is(messageBody['detail-type'], 'IngestCompleted')
   t.is(messageBody['source'], 'stac.ingest.lambda')
   t.deepEqual(messageBody['resources'], [])
 
   // Verify event data
   t.truthy(messageBody.detail)
-  const { orderId: actualOrderId, status: actualStatus } = messageBody.detail
+  const { payload, flowId, eventType, producerName, version, tags } = messageBody.detail
+  t.is(eventType, 'IngestCompleted')
+  t.is(producerName, 'stac-ingest-service')
+  t.is(version, '1.0.0')
+  t.is(tags.account, 'Fabric-Staging')
+  t.is(tags.stage, 'test')
+  t.is(tags.deployVersion, '1.0.0')
+  t.is(flowId, orderId)
+
+  // Verify payload
+  const { orderId: actualOrderId, status: actualStatus } = payload
   t.is(actualOrderId, orderId, 'Received incorrect orderID')
   t.is(actualStatus, 'SUCCESS', 'Received incorrect status')
 })
