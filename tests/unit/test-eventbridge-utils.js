@@ -92,7 +92,7 @@ test('convertToEventBridgeEvent should return EventBridge format', (t) => {
 })
 
 test('convertOrderIngestResultToIngestCompletedEvent should convert successful result to event', (t) => {
-  process.env['NODE_ENV'] = 'test'
+  process.env['AWS_STAGE'] = 'test'
 
   // Arrange
   const orderId = randomUUID()
@@ -118,7 +118,7 @@ test('convertOrderIngestResultToIngestCompletedEvent should convert successful r
 })
 
 test('convertOrderIngestResultToIngestCompletedEvent should convert failed result to event', (t) => {
-  process.env['NODE_ENV'] = 'test'
+  process.env['AWS_STAGE'] = 'test'
 
   // Arrange
   const orderId = randomUUID()
@@ -145,7 +145,7 @@ test('convertOrderIngestResultToIngestCompletedEvent should convert failed resul
 })
 
 test('convertOrderIngestResultToIngestCompletedEvent should use NODE_ENV for stage tag', (t) => {
-  process.env['NODE_ENV'] = 'production'
+  process.env['AWS_STAGE'] = 'production'
 
   // Arrange
   const orderId = randomUUID()
@@ -158,5 +158,5 @@ test('convertOrderIngestResultToIngestCompletedEvent should use NODE_ENV for sta
   const result = convertOrderIngestResultToIngestCompletedEvent(orderIngestResult)
 
   // Assert
-  t.is(result.tags.stage, 'production', 'Stage tag should match NODE_ENV')
+  t.is(result.tags.stage, 'production', 'Stage tag should match AWS_STAGE')
 })

@@ -35,6 +35,7 @@ test.beforeEach(async (t) => {
   if (ingestTopicArn === undefined) throw new Error('No ingest topic ARN')
 
   process.env['POST_INGEST_EVENT_BUS_NAME'] = 'default'
+  process.env['AWS_STAGE'] = 'test'
   await purgeQueue(ingestQueueUrl)
   await purgeQueue(eventBridgeQueueUrl)
 })
