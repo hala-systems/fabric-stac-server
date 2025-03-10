@@ -4,8 +4,11 @@ import { dbClient, createIndex } from './database-client.js'
 import { publishRecordToSns } from './sns.js'
 import { isCollection, isItem } from './stac-utils.js'
 import { publishRecordsToEventBridge } from './eventbridge.js'
-import { convertToEventBridgeEvent, validateIngestionCompletedEventSchema }
-  from './eventbridge-utils.js'
+import {
+  convertOrderIngestResultToIngestCompletedEvent,
+  convertToEventBridgeEvent,
+  validateIngestionCompletedEventSchema,
+} from './eventbridge-utils.js'
 import logger from './logger.js'
 import { getRequiredEnvVar } from './utils.js'
 
@@ -205,6 +208,7 @@ export async function publishResultsToSns(results, topicArn) {
 
 /**
  * @typedef {import('../lambdas/ingest/index.js').OrderIngestResult} OrderIngestResult
+ * @typedef {import('./eventbridge-utils.js').IngestCompletedEvent} IngestCompletedEvent
  * @typedef {import('@aws-sdk/client-eventbridge').PutEventsCommandOutput} PutEventsCommandOutput
  * @typedef {import('@aws-sdk/client-eventbridge').PutEventsRequestEntry} PutEventsRequestEntry
  */
@@ -212,7 +216,7 @@ export async function publishResultsToSns(results, topicArn) {
 /**
  * Checks all of the results against the IngestionCompletedEventSchema
  * Throws an error if the validation fails for any event
- * @param {OrderIngestResult[]} results
+ * @param {IngestCompletedEvent[]} results
  * @returns {undefined}
  */
 export function validateResultSchemaOrThrow(results) {
@@ -232,13 +236,14 @@ export function validateResultSchemaOrThrow(results) {
  * @returns {Promise<PutEventsCommandOutput>}
  */
 export async function publishResultsToEventBridge(results) {
-  validateResultSchemaOrThrow(results)
+  const formattedResults = results
+    .map((result) => convertOrderIngestResultToIngestCompletedEvent(result))
+  validateResultSchemaOrThrow(formattedResults)
 
   const eventBusName = getRequiredEnvVar('POST_INGEST_EVENT_BUS_NAME')
-
-  const events = results.map((result) => convertToEventBridgeEvent(
+  const events = formattedResults.map((formattedResult) => convertToEventBridgeEvent(
     eventBusName,
-    result,
+    formattedResult,
   ))
 
   const result = await publishRecordsToEventBridge(
