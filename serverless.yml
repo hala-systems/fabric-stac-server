@@ -116,6 +116,7 @@ functions:
     memorySize: 512
     timeout: 60
     environment:
+      AWS_STAGE: ${sls:stage}
       POST_INGEST_TOPIC_ARN: !Ref postIngestTopic
       POST_INGEST_EVENT_BUS_NAME: ${self:custom.stages.${sls:stage}.POST_INGEST_EVENT_BUS_NAME}
     package:
