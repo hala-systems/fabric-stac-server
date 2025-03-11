@@ -89,7 +89,7 @@ custom:
       POST_INGEST_EVENT_BUS_NAME: dev-fabric-bus
     stg:
       profile: Fabric-Staging
-      POST_INGEST_EVENT_BUS_NAME: stg-fabric-bus
+      POST_INGEST_EVENT_BUS_NAME: staging-fabric-bus
   opensearch_creds: ${ssm:/aws/reference/secretsmanager/fabric-${sls:stage}-opensearch-user-creds}
 
 package:
