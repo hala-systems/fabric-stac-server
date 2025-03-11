@@ -3,7 +3,7 @@ service: fabric-stac-server
 provider:
   name: aws
   runtime: nodejs18.x
-  stage: ${opt:stage, 'stg'}
+  stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-east-1'}
   profile: ${self:custom.stages.${sls:stage}.profile}
   # uncomment this if using a bucket that already exists for deployment files
@@ -36,8 +36,8 @@ provider:
     # POST_HOOK: ${self:service}-${sls:stage}-postHook
     # If you will be subscribing to post-ingest SNS notifications make
     # sure that STAC_API_URL is set so that links are updated correctly
-    STAC_API_URL: 'https://3auofrizcl.execute-api.us-east-1.amazonaws.com/stg'
-    CORS_ORIGIN: 'https://3auofrizcl.execute-api.us-east-1.amazonaws.com/stg'
+    # STAC_API_URL: 'https://3auofrizcl.execute-api.us-east-1.amazonaws.com/stg'
+    # CORS_ORIGIN: 'https://3auofrizcl.execute-api.us-east-1.amazonaws.com/stg'
     CORS_CREDENTIALS: false
   iam:
     role:
@@ -89,10 +89,7 @@ custom:
       POST_INGEST_EVENT_BUS_NAME: dev-fabric-bus
     stg:
       profile: Fabric-Staging
-      POST_INGEST_EVENT_BUS_NAME: dev-fabric-bus
-    prd:
-      profile: Fabric-Production
-      POST_INGEST_EVENT_BUS_NAME: dev-fabric-bus
+      POST_INGEST_EVENT_BUS_NAME: staging-fabric-bus
   opensearch_creds: ${ssm:/aws/reference/secretsmanager/fabric-${sls:stage}-opensearch-user-creds}
 
 package:

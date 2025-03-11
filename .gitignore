@@ -22,3 +22,5 @@ docs/
 test.js
 test.json
 test2.json
+
+.vscode/settings.json
