@@ -144,7 +144,7 @@ test('Should publish SUCCESS event after ingesting order', async (t) => {
   t.is(version, '1.0.0')
   t.is(tags.account, 'Fabric-Staging')
   t.is(tags.stage, 'test')
-  t.is(tags.deployVersion, '1.0.0')
+  t.is(tags.deployVersion, '3.9.0')
   t.is(flowId, orderId)
 
   // Verify payload

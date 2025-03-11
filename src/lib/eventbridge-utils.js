@@ -67,7 +67,7 @@ export function convertOrderIngestResultToIngestCompletedEvent(result) {
     tags: {
       account: 'Fabric-Staging',
       stage: getRequiredEnvVar('AWS_STAGE'),
-      deployVersion: '1.0.0'
+      deployVersion: '3.9.0'
     },
     payload: result,
     flowId: result.orderId,

@@ -111,7 +111,7 @@ test('convertOrderIngestResultToIngestCompletedEvent should convert successful r
   t.deepEqual(result.tags, {
     account: 'Fabric-Staging',
     stage: 'test',
-    deployVersion: '1.0.0'
+    deployVersion: '3.9.0'
   }, 'Incorrect tags')
   t.deepEqual(result.payload, orderIngestResult, 'Incorrect payload')
   t.is(result.flowId, orderId, 'Incorrect flowId')
@@ -138,7 +138,7 @@ test('convertOrderIngestResultToIngestCompletedEvent should convert failed resul
   t.deepEqual(result.tags, {
     account: 'Fabric-Staging',
     stage: 'test',
-    deployVersion: '1.0.0'
+    deployVersion: '3.9.0'
   }, 'Incorrect tags')
   t.deepEqual(result.payload, orderIngestResult, 'Incorrect payload')
   t.is(result.flowId, orderId, 'Incorrect flowId')
