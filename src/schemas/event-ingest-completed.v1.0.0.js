@@ -1,6 +1,6 @@
 export default {
   $schema: 'http://json-schema.org/draft-04/schema#',
-  id: 'https://halasystems.com/fabric/ingest-completed-event.json',
+  id: 'https://halasystems.com/fabric/event-ingest-completed.v1.0.0.json',
   title: 'Imagery ingestion completed event',
   description: 'An event emitted after the ingestion of satellite imagery'
     + ' is completed in the STAC server',

@@ -1,7 +1,7 @@
 import Ajv from 'ajv-draft-04'
 import AjvFormats from 'ajv-formats'
 
-import orderIngestionCompletedSchema from '../schemas/event-order-ingestion-completed.v1.0.0.js'
+import orderIngestionCompletedSchema from '../schemas/event-ingest-completed.v1.0.0.js'
 import { getRequiredEnvVar } from './utils.js'
 
 // @ts-ignore - Suppress error because it's incorrect
