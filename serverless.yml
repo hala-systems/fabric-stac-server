@@ -5,7 +5,6 @@ provider:
   runtime: nodejs18.x
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-east-1'}
-  profile: ${self:custom.stages.${sls:stage}.profile}
   # uncomment this if using a bucket that already exists for deployment files
   # deploymentBucket:
   #   name: my-deployment-bucket
@@ -21,8 +20,6 @@ provider:
     STAC_DESCRIPTION: 'A STAC API using stac-server'
     LOG_LEVEL: debug
     STAC_DOCS_URL: https://stac-utils.github.io/stac-server/
-    OPEN_SEARCH_MASTER_USERNAME: ${self:custom.opensearch_creds.username}
-    OPEN_SEARCH_MASTER_PASSWORD: ${self:custom.opensearch_creds.password}
     ITEMS_INDICIES_NUM_OF_SHARDS: 1
     ITEMS_INDICIES_NUM_OF_REPLICAS: 1
     OPENSEARCH_HOST:
@@ -39,6 +36,7 @@ provider:
     # STAC_API_URL: 'https://3auofrizcl.execute-api.us-east-1.amazonaws.com/stg'
     # CORS_ORIGIN: 'https://3auofrizcl.execute-api.us-east-1.amazonaws.com/stg'
     CORS_CREDENTIALS: false
+    IMAGERY_BUCKET_ARN: ${param:s3BucketArn}
   iam:
     role:
       statements:
@@ -70,8 +68,8 @@ provider:
             - s3:PutObject
             - s3:ListBucket
           Resource:
-            - 'arn:aws:s3:::fabric-${sls:stage}-stac-repository/*'
-            - 'arn:aws:s3:::fabric-${sls:stage}-stac-repository'
+            - '${self:provider.environment.IMAGERY_BUCKET_ARN}/*'
+            - '${self:provider.environment.IMAGERY_BUCKET_ARN}'
         # - Effect: Allow
         #   Action: lambda:InvokeFunction
         #   Resource: arn:aws:lambda:${aws:region}:${aws:accountId}:function:${self:service}-${sls:stage}-preHook
@@ -81,16 +79,6 @@ provider:
         # - Effect: Allow
         #   Action: lambda:InvokeFunction
         #   Resource: arn:aws:lambda:${aws:region}:${aws:accountId}:function:${self:service}-${sls:stage}-postHook
-
-custom:
-  stages:
-    dev:
-      profile: Fabric-Staging
-      POST_INGEST_EVENT_BUS_NAME: dev-fabric-bus
-    stg:
-      profile: Fabric-Staging
-      POST_INGEST_EVENT_BUS_NAME: staging-fabric-bus
-  opensearch_creds: ${ssm:/aws/reference/secretsmanager/fabric-${sls:stage}-opensearch-user-creds}
 
 package:
   individually: true
@@ -118,7 +106,7 @@ functions:
     environment:
       AWS_STAGE: ${sls:stage}
       POST_INGEST_TOPIC_ARN: !Ref postIngestTopic
-      POST_INGEST_EVENT_BUS_NAME: ${self:custom.stages.${sls:stage}.POST_INGEST_EVENT_BUS_NAME}
+      POST_INGEST_EVENT_BUS_NAME: ${sls:stage}-fabric-bus
     package:
       artifact: dist/ingest/ingest.zip
     events:
@@ -192,8 +180,17 @@ resources:
         Protocol: sqs
         Region: '${aws:region}'
         TopicArn: !Ref ingestTopic
+    OpenSearchPassword:
+      Type: AWS::SecretsManager::Secret
+      Properties:
+        Name: ${self:service}-${sls:stage}-opensearch-password
+        Description: 'OpenSearch master user password for ${self:service} ${sls:stage}'
+        GenerateSecretString:
+          PasswordLength: 16
+          ExcludeCharacters: '"@/\\'
     OpenSearchInstance:
       Type: AWS::OpenSearchService::Domain
+      DependsOn: OpenSearchPassword
       DeletionPolicy: Retain
       UpdateReplacePolicy: Retain
       UpdatePolicy:
@@ -222,8 +219,8 @@ resources:
           # When deploying to a new environment for this first time, the master user
           # must be set. Afterwards it's optional
           MasterUserOptions:
-            MasterUserName: ${self:provider.environment.OPEN_SEARCH_MASTER_USERNAME}
-            MasterUserPassword: ${self:provider.environment.OPEN_SEARCH_MASTER_PASSWORD}
+            MasterUserName: ${self:service}-admin
+            MasterUserPassword: '{{resolve:secretsmanager:${self:service}-${sls:stage}-opensearch-password:SecretString}}'
         AccessPolicies:
           Version: '2012-10-17'
           Statement:
@@ -239,6 +236,10 @@ resources:
         Fn::GetAtt: [OpenSearchInstance, DomainEndpoint]
       Export:
         Name: ${self:service}-${sls:stage}-os-endpoint
+    OpenSearchPassword:
+      Value: ${self:service}-${sls:stage}-opensearch-password
+      Export:
+        Name: ${self:service}-${sls:stage}-os-password-name
 
 plugins:
   - serverless-offline
