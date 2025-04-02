@@ -190,7 +190,7 @@ resources:
           GenerateStringKey: 'password'
           PasswordLength: 16
           IncludeSpace: false
-          ExcludeCharacters: '"@/\\:'
+          ExcludeCharacters: '"@/\\:#?&%+[]$'
     OpenSearchInstance:
       Type: AWS::OpenSearchService::Domain
       DependsOn: OpenSearchPassword
