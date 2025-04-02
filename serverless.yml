@@ -183,11 +183,14 @@ resources:
     OpenSearchPassword:
       Type: AWS::SecretsManager::Secret
       Properties:
-        Name: ${self:service}-${sls:stage}-opensearch-password
-        Description: 'OpenSearch master user password for ${self:service} ${sls:stage}'
+        Name: fabric-${sls:stage}-opensearch-user-creds
+        Description: 'OpenSearch master user credentials for ${self:service} ${sls:stage}'
         GenerateSecretString:
+          SecretStringTemplate: '{"username":"${self:service}-admin"}'
+          GenerateStringKey: 'password'
           PasswordLength: 16
-          ExcludeCharacters: '"@/\\'
+          IncludeSpace: false
+          ExcludeCharacters: '"@/\\:'
     OpenSearchInstance:
       Type: AWS::OpenSearchService::Domain
       DependsOn: OpenSearchPassword
@@ -214,13 +217,11 @@ resources:
         EncryptionAtRestOptions:
           Enabled: true
         AdvancedSecurityOptions:
-          Enabled: true # enables fine-grained access control
+          Enabled: true
           InternalUserDatabaseEnabled: true
-          # When deploying to a new environment for this first time, the master user
-          # must be set. Afterwards it's optional
           MasterUserOptions:
             MasterUserName: ${self:service}-admin
-            MasterUserPassword: '{{resolve:secretsmanager:${self:service}-${sls:stage}-opensearch-password:SecretString}}'
+            MasterUserPassword: '{{resolve:secretsmanager:fabric-${sls:stage}-opensearch-user-creds:SecretString:password}}'
         AccessPolicies:
           Version: '2012-10-17'
           Statement:
