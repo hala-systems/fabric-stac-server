@@ -15,7 +15,7 @@ provider:
       accessLogging: false
       format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","useragent" : "$context.identity.userAgent","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
   environment:
-    STAC_ID: 'fabric-stac-server-2'
+    STAC_ID: ${self:service}
     STAC_TITLE: 'Fabric STAC API'
     STAC_DESCRIPTION: 'A STAC API using stac-server'
     LOG_LEVEL: debug
@@ -25,7 +25,7 @@ provider:
     OPENSEARCH_HOST:
       Fn::GetAtt: [OpenSearchInstance, DomainEndpoint]
     ENABLE_TRANSACTIONS_EXTENSION: false
-    OPENSEARCH_CREDENTIALS_SECRET_ID: fabric-${self:service}-${sls:stage}-opensearch-user-creds
+    OPENSEARCH_CREDENTIALS_SECRET_ID: ${self:service}-${sls:stage}-opensearch-user-creds
     # comment STAC_API_ROOTPATH if deployed with a custom domain
     STAC_API_ROOTPATH: '/${sls:stage}'
     # PRE_HOOK: ${self:service}-${sls:stage}-preHook
@@ -183,7 +183,7 @@ resources:
     OpenSearchPassword:
       Type: AWS::SecretsManager::Secret
       Properties:
-        Name: fabric-${sls:stage}-opensearch-user-creds
+        Name: ${self:service}-${sls:stage}-opensearch-user-creds
         Description: 'OpenSearch master user credentials for ${self:service} ${sls:stage}'
         GenerateSecretString:
           SecretStringTemplate: '{"username":"${self:service}-admin"}'
@@ -221,7 +221,7 @@ resources:
           InternalUserDatabaseEnabled: true
           MasterUserOptions:
             MasterUserName: ${self:service}-admin
-            MasterUserPassword: '{{resolve:secretsmanager:fabric-${sls:stage}-opensearch-user-creds:SecretString:password}}'
+            MasterUserPassword: '{{resolve:secretsmanager:${self:service}-${sls:stage}-opensearch-user-creds:SecretString:password}}'
         AccessPolicies:
           Version: '2012-10-17'
           Statement:
