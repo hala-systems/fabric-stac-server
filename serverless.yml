@@ -1,4 +1,4 @@
-service: fabric-stac-server
+service: fabric-stac-server-2
 
 provider:
   name: aws
@@ -15,7 +15,7 @@ provider:
       accessLogging: false
       format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","useragent" : "$context.identity.userAgent","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
   environment:
-    STAC_ID: 'fabric-stac-server'
+    STAC_ID: 'fabric-stac-server-2'
     STAC_TITLE: 'Fabric STAC API'
     STAC_DESCRIPTION: 'A STAC API using stac-server'
     LOG_LEVEL: debug
@@ -25,7 +25,7 @@ provider:
     OPENSEARCH_HOST:
       Fn::GetAtt: [OpenSearchInstance, DomainEndpoint]
     ENABLE_TRANSACTIONS_EXTENSION: false
-    OPENSEARCH_CREDENTIALS_SECRET_ID: fabric-${sls:stage}-opensearch-user-creds
+    OPENSEARCH_CREDENTIALS_SECRET_ID: fabric-${self:service}-${sls:stage}-opensearch-user-creds
     # comment STAC_API_ROOTPATH if deployed with a custom domain
     STAC_API_ROOTPATH: '/${sls:stage}'
     # PRE_HOOK: ${self:service}-${sls:stage}-preHook
