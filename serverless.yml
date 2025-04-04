@@ -1,4 +1,4 @@
-service: fabric-stac-service
+service: fabric-stac-server
 
 provider:
   name: aws
@@ -16,8 +16,8 @@ provider:
       format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","useragent" : "$context.identity.userAgent","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
   environment:
     STAC_ID: ${self:service}
-    STAC_TITLE: 'Fabric STAC API'
-    STAC_DESCRIPTION: 'A STAC API using stac-server'
+    STAC_TITLE: "Fabric STAC API"
+    STAC_DESCRIPTION: "A STAC API using stac-server"
     LOG_LEVEL: debug
     STAC_DOCS_URL: https://stac-utils.github.io/stac-server/
     ITEMS_INDICIES_NUM_OF_SHARDS: 1
@@ -27,7 +27,7 @@ provider:
     ENABLE_TRANSACTIONS_EXTENSION: false
     OPENSEARCH_CREDENTIALS_SECRET_ID: ${self:service}-${sls:stage}-opensearch-user-creds
     # comment STAC_API_ROOTPATH if deployed with a custom domain
-    STAC_API_ROOTPATH: '/${sls:stage}'
+    STAC_API_ROOTPATH: "/${sls:stage}"
     # PRE_HOOK: ${self:service}-${sls:stage}-preHook
     # API_KEYS_SECRET_ID: ${self:service}-${sls:stage}-api-keys
     # POST_HOOK: ${self:service}-${sls:stage}-postHook
@@ -41,8 +41,8 @@ provider:
     role:
       statements:
         - Effect: Allow
-          Resource: 'arn:aws:es:${aws:region}:${aws:accountId}:domain/*'
-          Action: 'es:*'
+          Resource: "arn:aws:es:${aws:region}:${aws:accountId}:domain/*"
+          Action: "es:*"
         - Effect: Allow
           Action:
             - sqs:GetQueueUrl
@@ -58,7 +58,7 @@ provider:
             Fn::GetAtt: [postIngestTopic, TopicArn]
         - Effect: Allow
           Action: s3:GetObject
-          Resource: 'arn:aws:s3:::usgs-landsat/*'
+          Resource: "arn:aws:s3:::usgs-landsat/*"
         - Effect: Allow
           Resource: arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:${self:provider.environment.OPENSEARCH_CREDENTIALS_SECRET_ID}-*
           Action: secretsmanager:GetSecretValue
@@ -68,8 +68,8 @@ provider:
             - s3:PutObject
             - s3:ListBucket
           Resource:
-            - '${self:provider.environment.IMAGERY_BUCKET_ARN}/*'
-            - '${self:provider.environment.IMAGERY_BUCKET_ARN}'
+            - "${self:provider.environment.IMAGERY_BUCKET_ARN}/*"
+            - "${self:provider.environment.IMAGERY_BUCKET_ARN}"
         # - Effect: Allow
         #   Action: lambda:InvokeFunction
         #   Resource: arn:aws:lambda:${aws:region}:${aws:accountId}:function:${self:service}-${sls:stage}-preHook
@@ -92,11 +92,11 @@ functions:
     events:
       - http:
           method: ANY
-          path: '/'
+          path: "/"
           cors: true
       - http:
           method: ANY
-          path: '{proxy+}'
+          path: "{proxy+}"
           cors: true
   ingest:
     description: stac-server Ingest Lambda
@@ -167,7 +167,7 @@ resources:
             - Sid: allow-sqs-sendmessage
               Effect: Allow
               Principal:
-                AWS: '*'
+                AWS: "*"
               Action: SQS:SendMessage
               Resource: !GetAtt ingestQueue.Arn
               Condition:
@@ -178,16 +178,16 @@ resources:
       Properties:
         Endpoint: !GetAtt ingestQueue.Arn
         Protocol: sqs
-        Region: '${aws:region}'
+        Region: "${aws:region}"
         TopicArn: !Ref ingestTopic
     OpenSearchPassword:
       Type: AWS::SecretsManager::Secret
       Properties:
         Name: ${self:service}-${sls:stage}-opensearch-user-creds
-        Description: 'OpenSearch master user credentials for ${self:service} ${sls:stage}'
+        Description: "OpenSearch master user credentials for ${self:service} ${sls:stage}"
         GenerateSecretString:
           SecretStringTemplate: '{"username":"${self:service}-admin"}'
-          GenerateStringKey: 'password'
+          GenerateStringKey: "password"
           PasswordLength: 16
           IncludeSpace: false
           ExcludeCharacters: '"@/\\:#?&%+[]$'
@@ -221,15 +221,15 @@ resources:
           InternalUserDatabaseEnabled: true
           MasterUserOptions:
             MasterUserName: ${self:service}-admin
-            MasterUserPassword: '{{resolve:secretsmanager:${self:service}-${sls:stage}-opensearch-user-creds:SecretString:password}}'
+            MasterUserPassword: "{{resolve:secretsmanager:${self:service}-${sls:stage}-opensearch-user-creds:SecretString:password}}"
         AccessPolicies:
-          Version: '2012-10-17'
+          Version: "2012-10-17"
           Statement:
-            - Effect: 'Allow'
+            - Effect: "Allow"
               Principal:
-                AWS: '*'
-              Action: 'es:ESHttp*'
-              Resource: 'arn:aws:es:${aws:region}:${aws:accountId}:domain/${self:service}-${sls:stage}/*'
+                AWS: "*"
+              Action: "es:ESHttp*"
+              Resource: "arn:aws:es:${aws:region}:${aws:accountId}:domain/${self:service}-${sls:stage}/*"
 
   Outputs:
     OpenSearchEndpoint:
