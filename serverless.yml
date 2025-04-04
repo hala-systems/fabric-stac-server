@@ -1,4 +1,4 @@
-service: fabric-stac-server-service
+service: fabric-stac-service
 
 provider:
   name: aws
