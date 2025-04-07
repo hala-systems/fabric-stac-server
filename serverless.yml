@@ -5,20 +5,6 @@ provider:
   runtime: nodejs18.x
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-east-1'}
-  endpointType: PRIVATE
-  vpcEndpointIds:
-    - ${param:vpcEndpointId}
-  apiGateway:
-    resourcePolicy:
-      - Effect: Allow
-        Principal: "*"
-        Action: execute-api:Invoke
-        Resource:
-          - execute-api:/${sls:stage}/*
-        Condition:
-          StringEquals:
-            aws:sourceVpce:
-              - ${param:vpcEndpointId}
   # uncomment this if using a bucket that already exists for deployment files
   # deploymentBucket:
   #   name: my-deployment-bucket
