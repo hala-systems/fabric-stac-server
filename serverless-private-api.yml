@@ -1,0 +1,82 @@
+service: fabric-stac-server-private-api
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  endpointType: PRIVATE
+  vpcEndpointIds:
+    - ${param:vpcEndpointId}
+  apiGateway:
+    resourcePolicy:
+      - Effect: Allow
+        Principal: "*"
+        Action: execute-api:Invoke
+        Resource:
+          - execute-api:/${sls:stage}/*
+        Condition:
+          StringEquals:
+            aws:sourceVpce:
+              - ${param:vpcEndpointId}
+  logs:
+    restApi:
+      executionLogging: false
+      fullExecutionData: false
+      accessLogging: false
+      format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","useragent" : "$context.identity.userAgent","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
+  environment:
+    STAC_ID: ${self:custom.service}
+    STAC_TITLE: "Fabric STAC API"
+    STAC_DESCRIPTION: "A STAC API using stac-server"
+    LOG_LEVEL: debug
+    STAC_DOCS_URL: https://stac-utils.github.io/stac-server/
+    ITEMS_INDICIES_NUM_OF_SHARDS: 1
+    ITEMS_INDICIES_NUM_OF_REPLICAS: 1
+    OPENSEARCH_HOST:
+      Fn::ImportValue: ${self:custom.service}-${sls:stage}-os-endpoint
+    ENABLE_TRANSACTIONS_EXTENSION: false
+    OPENSEARCH_CREDENTIALS_SECRET_ID: ${self:custom.service}-${sls:stage}-opensearch-user-creds
+    # comment STAC_API_ROOTPATH if deployed with a custom domain
+    STAC_API_ROOTPATH: "/${sls:stage}"
+    CORS_CREDENTIALS: false
+    IMAGERY_BUCKET_ARN: ${param:s3BucketArn}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: s3:GetObject
+          Resource: "arn:aws:s3:::usgs-landsat/*"
+        - Effect: Allow
+          Resource: arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:${self:provider.environment.OPENSEARCH_CREDENTIALS_SECRET_ID}-*
+          Action: secretsmanager:GetSecretValue
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:ListBucket
+          Resource:
+            - "${self:provider.environment.IMAGERY_BUCKET_ARN}/*"
+            - "${self:provider.environment.IMAGERY_BUCKET_ARN}"
+custom:
+  service: fabric-stac-server
+
+package:
+  individually: true
+
+functions:
+  privateApi:
+    description: Private stac-server API Lambda
+    handler: index.handler
+    events:
+      - http:
+          method: ANY
+          path: "/"
+          cors: false
+      - http:
+          method: ANY
+          path: "{proxy+}"
+          cors: false
+
+plugins:
+  - serverless-offline

@@ -84,18 +84,8 @@ package:
   individually: true
 
 functions:
-  privateApi:
-    description: Private stac-server API Lambda
-    handler: index.handler
-    package:
-      artifact: dist/api/api.zip
-    events:
-      - http:
-          method: ANY
-          path: '/'
-          cors: false
-  publicApi:
-    description: Public stac-server API Lambda
+  api:
+    description: stac-server API Lambda
     handler: index.handler
     package:
       artifact: dist/api/api.zip
@@ -241,39 +231,6 @@ resources:
               Action: 'es:ESHttp*'
               Resource: 'arn:aws:es:${aws:region}:${aws:accountId}:domain/${self:service}-${sls:stage}/*'
 
-    privateApiGateway:
-      Type: AWS::ApiGateway::RestApi
-      Properties:
-        Name: ${sls:stage}-${self:service}-private-api
-        Description: Private API for the fabric-stac-server
-        FailOnWarnings: true
-        EndpointConfiguration:
-          Types:
-            - PRIVATE
-          VpcEndpointIds:
-            - ${param:vpcEndpointId}
-        Policy:
-          Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Principal: "*"
-              Action: execute-api:Invoke
-              Resource: execute-api:/${sls:stage}/*
-              Condition:
-                StringEquals:
-                  aws:sourceVpce:
-                    - ${param:vpcEndpointId}
-
-    publicApiGateway:
-      Type: AWS::ApiGateway::RestApi
-      Properties:
-        Name: ${sls:stage}-${self:service}-public-api
-        Description: Public API for the fabric-stac-server
-        FailOnWarnings: true
-        EndpointConfiguration:
-          Types:
-            - EDGE
-
   Outputs:
     OpenSearchEndpoint:
       Value:
@@ -284,17 +241,6 @@ resources:
       Value: ${self:service}-${sls:stage}-opensearch-password
       Export:
         Name: ${self:service}-${sls:stage}-os-password-name
-    PrivateApiUrl:
-      Value:
-        Fn::Sub: 'https://${privateApiGateway}.execute-api.${aws:region}.amazonaws.com/${sls:stage}/'
-      Export:
-        Name: ${self:service}-${sls:stage}-private-api-url
-
-    PublicApiUrl:
-      Value:
-        Fn::Sub: 'https://${publicApiGateway}.execute-api.${aws:region}.amazonaws.com/${sls:stage}/'
-      Export:
-        Name: ${self:service}-${sls:stage}-public-api-url
 
 plugins:
   - serverless-offline
