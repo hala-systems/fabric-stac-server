@@ -87,6 +87,8 @@ functions:
   privateApi:
     description: Private stac-server API Lambda
     handler: index.handler
+    package:
+      artifact: dist/api/api.zip
     events:
       - http:
           method: ANY
@@ -95,6 +97,8 @@ functions:
   publicApi:
     description: Public stac-server API Lambda
     handler: index.handler
+    package:
+      artifact: dist/api/api.zip
     events:
       - http:
           method: ANY
