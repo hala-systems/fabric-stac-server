@@ -45,6 +45,9 @@ provider:
     role:
       statements:
         - Effect: Allow
+          Resource: "arn:aws:es:${aws:region}:${aws:accountId}:domain/*"
+          Action: "es:*"
+        - Effect: Allow
           Action: s3:GetObject
           Resource: "arn:aws:s3:::usgs-landsat/*"
         - Effect: Allow
@@ -68,6 +71,8 @@ functions:
   privateApi:
     description: Private stac-server API Lambda
     handler: index.handler
+    package:
+      artifact: dist/api/api.zip
     events:
       - http:
           method: ANY
