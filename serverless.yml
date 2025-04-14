@@ -33,8 +33,10 @@ provider:
     # POST_HOOK: ${self:service}-${sls:stage}-postHook
     # If you will be subscribing to post-ingest SNS notifications make
     # sure that STAC_API_URL is set so that links are updated correctly
-    # STAC_API_URL: 'https://3auofrizcl.execute-api.us-east-1.amazonaws.com/stg'
-    # CORS_ORIGIN: 'https://3auofrizcl.execute-api.us-east-1.amazonaws.com/stg'
+    STAC_API_URL:
+      Fn::Sub: https://${ApiGatewayRestApi}.execute-api.${aws:region}.amazonaws.com/${sls:stage}
+    CORS_ORIGIN:
+      Fn::Sub: https://${ApiGatewayRestApi}.execute-api.${aws:region}.amazonaws.com/${sls:stage}
     CORS_CREDENTIALS: false
     IMAGERY_BUCKET_ARN: ${param:s3BucketArn}
   iam:
