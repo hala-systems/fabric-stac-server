@@ -39,6 +39,8 @@ provider:
     OPENSEARCH_CREDENTIALS_SECRET_ID: ${self:custom.service}-${sls:stage}-opensearch-user-creds
     # comment STAC_API_ROOTPATH if deployed with a custom domain
     STAC_API_ROOTPATH: "/${sls:stage}"
+    STAC_API_URL:
+      Fn::Sub: https://${param:vpcEndpointId}.execute-api.${aws:region}.amazonaws.com/${sls:stage}
     CORS_CREDENTIALS: false
     IMAGERY_BUCKET_ARN: ${param:s3BucketArn}
   iam:
